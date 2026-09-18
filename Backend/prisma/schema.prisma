@@ -1,0 +1,126 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id             String          @id @default(uuid())
+  name           String
+  email          String          @unique
+  password       String
+  role           String          // "DONOR" or "CHARITY"
+  createdAt      DateTime        @default(now())
+  charityProfile CharityProfile?
+  donations      Donation[]
+}
+
+model CharityProfile {
+  id                  String     @id // CH001 format
+  userId              String     @unique
+  user                User       @relation(fields: [userId], references: [id])
+  organizationName    String
+  registrationNumber  String
+  email               String
+  walletAddress       String
+  verificationStatus  String     @default("VALIDATED") // "VALIDATED" or "PENDING"
+  registeredAt        DateTime   @default(now())
+  blockchainTxHash    String?
+  blockchainCharityId Int?
+  campaigns           Campaign[]
+}
+
+model Campaign {
+  id                   String           @id // CMP001 format
+  charityId            String
+  charity              CharityProfile   @relation(fields: [charityId], references: [id])
+  title                String
+  description          String
+  category             String           @default("Community")
+  targetAmount         Float
+  raisedAmount         Float            @default(0)
+  allocatedAmount      Float            @default(0)
+  utilizedAmount       Float            @default(0)
+  startDate            DateTime
+  endDate              DateTime
+  status               String           @default("Active") // "Active" or "Completed"
+  accent               String           @default("violet")
+  blockchainCampaignId Int?
+  blockchainTxHash     String?
+  createdAt            DateTime         @default(now())
+  donations            Donation[]
+  allocations          FundAllocation[]
+  evidence             Evidence[]
+}
+
+model Payment {
+  id               String     @id // PAY001 format
+  paymentReference String     @unique // PAY12345
+  amount           Float
+  currency         String     @default("INR")
+  paymentMethod    String     @default("SIMULATED_FIAT")
+  status           String     @default("SUCCESS")
+  timestamp        DateTime   @default(now())
+  donations        Donation[]
+}
+
+model Donation {
+  id                   String   @id // DON001 format
+  campaignId           String
+  campaign             Campaign @relation(fields: [campaignId], references: [id])
+  donorId              String?
+  donor                User?    @relation(fields: [donorId], references: [id])
+  amount               Float
+  currency             String   @default("INR")
+  paymentReference     String
+  payment              Payment  @relation(fields: [paymentReference], references: [paymentReference])
+  paymentStatus        String   @default("SUCCESS")
+  timestamp            DateTime @default(now())
+  blockchainStatus     String   @default("RECORDED")
+  blockchainTxHash     String?
+  blockchainDonationId Int?
+}
+
+model FundAllocation {
+  id                     String     @id // ALLOC001 format
+  campaignId             String
+  campaign               Campaign   @relation(fields: [campaignId], references: [id])
+  recipient              String
+  amount                 Float
+  purpose                String
+  category               String     @default("General")
+  timestamp              DateTime   @default(now())
+  blockchainAllocationId Int?
+  blockchainTxHash       String?
+  evidence               Evidence[]
+}
+
+model Evidence {
+  id                   String          @id // EVD001 format
+  allocationId         String?
+  allocation           FundAllocation? @relation(fields: [allocationId], references: [id])
+  campaignId           String
+  campaign             Campaign        @relation(fields: [campaignId], references: [id])
+  type                 String
+  fileName             String
+  fileHash             String
+  cid                  String
+  status               String          @default("VERIFIED") // "VERIFIED" or "REJECTED"
+  timestamp            DateTime        @default(now())
+  blockchainEvidenceId Int?
+  blockchainTxHash     String?
+}
+
+model BlockchainEvent {
+  id              String   @id @default(uuid())
+  eventType       String
+  contract        String
+  entityId        String
+  blockNumber     Int
+  transactionHash String
+  timestamp       DateTime @default(now())
+  eventData       String   // JSON string
+}
